@@ -4,12 +4,39 @@
 Binance Early-Expansion Sniper Bot — Paper Trading Edition
 نظام درجات متعدد المصادر + مرشح جودة + إدارة مخاطر + محاكاة تنفيذ
 بيانات سوق حقيقية | صفقات محاكاة محلية | بدون حساب أو مفاتيح
+(معدل ليتوافق مع الاستضافات السحابية كـ Web Service مع خادم ويب وهمي)
 """
 
 import time, json, math, logging
 import requests
 from datetime import datetime, timezone
 from collections import deque
+import threading
+import http.server
+import socketserver
+
+# ================== خادم الويب الوهمي لإرضاء منصة Render ==================
+PORT = 8080
+
+class SimpleHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"Bot is running 24/7!")
+        
+    def log_message(self, format, *args):
+        # تعطيل طباعة طلبات البوابات المتكررة في السجلات لتكون نظيفة
+        return
+
+def run_server():
+    with socketserver.TCPServer(("", PORT), SimpleHandler) as httpd:
+        print(f"Web server running on port {PORT}")
+        httpd.serve_forever()
+
+# تشغيل السيرفر في خلفية النظام (Background Thread)
+server_thread = threading.Thread(target=run_server, daemon=True)
+server_thread.start()
 
 # ================== الإعدادات ==================
 CONFIG = {
@@ -351,7 +378,6 @@ class SniperBot:
         self._ticker_cache = {"data": None, "ts": 0}
 
     def _ticker(self):
-        # تخزين مؤقت لقائمة الأسعار 24h لمدة 60 ثانية (توفير لحدود الطلبات)
         if time.time() - self._ticker_cache["ts"] > 60 or self._ticker_cache["data"] is None:
             self._ticker_cache["data"] = self.data.ticker_24h()
             self._ticker_cache["ts"] = time.time()
@@ -508,7 +534,7 @@ class SniperBot:
                 log.info("إيقاف يدوي")
                 break
             except Exception as e:
-                log.error(f"خطأ في الحلقة: {e}", exc_info=True)
+                log.error(f"خطأ في الحلقة: {e}", exc_info+True)
                 time.sleep(10)
 
 if __name__ == "__main__":
